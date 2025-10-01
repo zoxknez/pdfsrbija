@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8">
+  <title>Zamena stranice</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;background:#111;color:#eee;margin:0;padding:2rem}
+    .card{background:#181818;border:1px solid #2a2a2a;border-radius:12px;padding:1rem;max-width:720px}
+    label{display:block;margin:.5rem 0 .25rem}
+    input,select,button{width:100%;padding:.6rem;border-radius:8px;border:1px solid #333;background:#0f0f0f;color:#eee}
+    button{cursor:pointer}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    small{opacity:.7}
+  </style>
+  <!-- CSRF + fetch helper to include JWT cookies and XSRF header -->
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h2>Zamena stranice u PDF-u</h2>
+    <form id="frm" enctype="multipart/form-data">
+      <label>Osnovni PDF</label>
+      <input type="file" name="pdf" accept="application/pdf" required>
+
+      <div class="row">
+        <div>
+          <label>Režim</label>
+          <select name="mode" id="mode">
+            <option value="pdf">PDF → PDF</option>
+            <option value="image">Slika → PDF</option>
+          </select>
+        </div>
+        <div>
+          <label>Ciljna strana (1-based)</label>
+          <input type="number" name="targetPage" min="1" value="1" required>
+        </div>
+      </div>
+
+      <div id="pdfInputs">
+        <label>Zamenska PDF datoteka</label>
+        <input type="file" name="replacementPdf" accept="application/pdf">
+
+        <label>Izvorna strana u zamenskom PDF-u <small>(1 = prva; prazno=1)</small></label>
+        <input type="number" name="sourcePage" min="1" placeholder="1">
+
+        <label style="margin-top:.75rem">
+          <input type="checkbox" id="keepSize" name="keepSize"> Zadrži veličinu ciljne strane (vector)
+        </label>
+
+        <div id="fitRow" style="display:none">
+          <label>Fit (za vector i sliku)</label>
+          <select name="fit" id="fit">
+            <option value="contain">Contain (bez sečenja)</option>
+            <option value="cover">Cover (popuni stranu)</option>
+            <option value="fitWidth">Fit width</option>
+            <option value="fitHeight">Fit height</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="imgInputs" style="display:none">
+        <label>Slika (PNG/JPG)</label>
+        <input type="file" name="image" accept="image/png,image/jpeg">
+        <!-- koristi isti #fitRow za fit -->
+      </div>
+
+      <div style="margin-top:1rem">
+        <button type="submit">Zameni i preuzmi</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- PREVIEW blok -->
+  <div id="preview" style="margin-top:1rem; display:none">
+    <h4>Preview zamene</h4>
+    <div id="previewWrap" style="border:1px solid #333;border-radius:8px;overflow:hidden"></div>
+  </div>
+
+  <script>
+    const modeSel = document.getElementById('mode');
+    const keepSizeCb = document.getElementById('keepSize');
+    const fitRow = document.getElementById('fitRow');
+    const pdfInputs = document.getElementById('pdfInputs');
+    const imgInputs = document.getElementById('imgInputs');
+    const pdfInput = document.querySelector('input[name="replacementPdf"]');
+    const imgInput = document.querySelector('input[name="image"]');
+    const preview = document.getElementById('preview');
+    const wrap = document.getElementById('previewWrap');
+
+    function toggleBlocks() {
+      const img = modeSel.value === 'image';
+      pdfInputs.style.display = img ? 'none' : 'block';
+      imgInputs.style.display = img ? 'block' : 'none';
+      fitRow.style.display = (img || keepSizeCb.checked) ? 'block' : 'none';
+    }
+    modeSel.addEventListener('change', toggleBlocks);
+    keepSizeCb.addEventListener('change', toggleBlocks);
+    toggleBlocks();
+
+    function showPdfPreview(file){
+      wrap.innerHTML = '';
+      const url = URL.createObjectURL(file);
+      const emb = document.createElement('embed');
+      emb.type = 'application/pdf';
+      emb.src = url + '#page=1&zoom=page-width';
+      emb.style.width = '100%';
+      emb.style.height = '420px';
+      wrap.appendChild(emb);
+      preview.style.display = 'block';
+    }
+    function showImgPreview(file){
+      wrap.innerHTML = '';
+      const url = URL.createObjectURL(file);
+      const img = document.createElement('img');
+      img.src = url;
+      img.style.maxWidth = '100%';
+      img.style.display = 'block';
+      wrap.appendChild(img);
+      preview.style.display = 'block';
+    }
+    pdfInput?.addEventListener('change', e => { const f = e.target.files?.[0]; if (f) showPdfPreview(f); });
+    imgInput?.addEventListener('change', e => { const f = e.target.files?.[0]; if (f) showImgPreview(f); });
+
+    document.getElementById('frm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+  const r = await window.fetchWithCsrf('/api/pdf/page/replace', { method:'POST', body: fd });
+      if (!r.ok) { alert('Greška: ' + (await r.text())); return; }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'replaced.pdf';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+package stirling.software.SPDF.service;
+
+import static stirling.software.common.util.AttachmentUtils.setCatalogViewerPreferences;
+
+import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDDocumentCatalog;
+import org.apache.pdfbox.pdmodel.PDDocumentNameDictionary;
+import org.apache.pdfbox.pdmodel.PDEmbeddedFilesNameTreeNode;
+import org.apache.pdfbox.pdmodel.PageMode;
+import org.apache.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification;
+import org.apache.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+public class AttachmentService implements AttachmentServiceInterface {
+
+    @Override
+    public PDDocument addAttachment(PDDocument document, List<MultipartFile> attachments)
+            throws IOException {
+        PDEmbeddedFilesNameTreeNode embeddedFilesTree = getEmbeddedFilesTree(document);
+        Map<String, PDComplexFileSpecification> existingNames;
+
+        try {
+            Map<String, PDComplexFileSpecification> names = embeddedFilesTree.getNames();
+
+            if (names == null) {
+                log.debug("No existing embedded files found, creating new names map.");
+                existingNames = new HashMap<>();
+            } else {
+                existingNames = new HashMap<>(names);
+                log.debug("Embedded files: {}", existingNames.keySet());
+            }
+        } catch (IOException e) {
+            log.error("Could not retrieve existing embedded files", e);
+            throw e;
+        }
+
+        attachments.forEach(
+                attachment -> {
+                    String filename = attachment.getOriginalFilename();
+
+                    try {
+                        PDEmbeddedFile embeddedFile =
+                                new PDEmbeddedFile(document, attachment.getInputStream());
+                        embeddedFile.setSize((int) attachment.getSize());
+                        // Try to force the underlying COSStream to become an indirect COSObject
+                        // so the EF/F reference in the FileSpec won't become COSNull later.
+                        try {
+                            org.apache.pdfbox.cos.COSObject forcedStream =
+                                    ensureIndirect(document, embeddedFile.getCOSObject());
+                            if (forcedStream != null) {
+                                // Rebuild PDEmbeddedFile from the indirect COSStream so the
+                                // high-level
+                                // API reflects the indirectized stream.
+                                try {
+                                    embeddedFile =
+                                            new PDEmbeddedFile(
+                                                    (org.apache.pdfbox.cos.COSStream)
+                                                            forcedStream.getObject());
+                                    embeddedFile.setSize((int) attachment.getSize());
+                                    embeddedFile.setCreationDate(
+                                            GregorianCalendar.from(
+                                                    ZonedDateTime.ofInstant(
+                                                            Instant.now(),
+                                                            ZoneId.systemDefault())));
+                                    embeddedFile.setModDate(
+                                            GregorianCalendar.from(
+                                                    ZonedDateTime.ofInstant(
+                                                            Instant.now(),
+                                                            ZoneId.systemDefault())));
+                                    String ct = attachment.getContentType();
+                                    if (StringUtils.isNotBlank(ct)) embeddedFile.setSubtype(ct);
+                                } catch (Exception ignored) {
+                                }
+                            }
+                        } catch (Exception ignored) {
+                        }
+                        // use java.time.Instant and convert to GregorianCalendar for PDFBox
+                        Instant now = Instant.now();
+                        GregorianCalendar nowCal =
+                                GregorianCalendar.from(
+                                        ZonedDateTime.ofInstant(now, ZoneId.systemDefault()));
+                        embeddedFile.setCreationDate(nowCal);
+                        embeddedFile.setModDate(nowCal);
+                        String contentType = attachment.getContentType();
+                        if (StringUtils.isNotBlank(contentType)) {
+                            embeddedFile.setSubtype(contentType);
+                        }
+
+                        // Create attachments specification and associate embedded attachment with
+                        // file
+                        PDComplexFileSpecification fileSpecification =
+                                new PDComplexFileSpecification();
+                        fileSpecification.setFile(filename);
+                        fileSpecification.setFileUnicode(filename);
+                        fileSpecification.setFileDescription("Embedded attachment: " + filename);
+                        fileSpecification.setEmbeddedFile(embeddedFile);
+                        fileSpecification.setEmbeddedFileUnicode(embeddedFile);
+
+                        // Ensure the embedded file stream and the file specification are
+                        // indirect objects in the underlying COSDocument. Some PDFBox
+                        // builds only create the indirect COSObject on save; forcing the
+                        // object into the COSDocument now avoids COSNull placeholders in
+                        // Names/EF entries when inspecting or validating the document.
+                        try {
+                            // Try to indirectize the embedded-file stream first
+                            org.apache.pdfbox.cos.COSBase efDictBase =
+                                    fileSpecification
+                                            .getCOSObject()
+                                            .getDictionaryObject(COSName.EF);
+                            if (efDictBase instanceof org.apache.pdfbox.cos.COSDictionary efDict) {
+                                org.apache.pdfbox.cos.COSBase fBase =
+                                        efDict.getDictionaryObject(COSName.F);
+                                if (fBase != null
+                                        && !(fBase instanceof org.apache.pdfbox.cos.COSObject)) {
+                                    org.apache.pdfbox.cos.COSObject forced =
+                                            ensureIndirect(document, fBase);
+                                    if (forced != null) {
+                                        efDict.setItem(COSName.F, forced);
+                                    }
+                                }
+                            }
+
+                            // Now ensure the file specification itself is present as an indirect
+                            // object in the document. This helps build the Names array with a
+                            // proper object reference instead of a COSNull placeholder.
+                            org.apache.pdfbox.cos.COSObject fsForced =
+                                    ensureIndirect(document, fileSpecification.getCOSObject());
+                            if (fsForced != null) {
+                                // nothing else required; the COSDocument now owns the object
+                            }
+                        } catch (Exception ignored) {
+                        }
+
+                        existingNames.put(filename, fileSpecification);
+
+                        log.info("Added attachment: {} ({} bytes)", filename, attachment.getSize());
+                    } catch (IOException e) {
+                        log.warn("Failed to create embedded file for attachment: {}", filename, e);
+                    }
+                });
+
+        embeddedFilesTree.setNames(existingNames);
+        setCatalogViewerPreferences(document, PageMode.USE_ATTACHMENTS);
+
+        return document;
+    }
+
+    private PDEmbeddedFilesNameTreeNode getEmbeddedFilesTree(PDDocument document) {
+        PDDocumentCatalog catalog = document.getDocumentCatalog();
+        PDDocumentNameDictionary documentNames = catalog.getNames();
+
+        if (documentNames == null) {
+            documentNames = new PDDocumentNameDictionary(catalog);
+        }
+
+        catalog.setNames(documentNames);
+        PDEmbeddedFilesNameTreeNode embeddedFilesTree = documentNames.getEmbeddedFiles();
+
+        if (embeddedFilesTree == null) {
+            embeddedFilesTree = new PDEmbeddedFilesNameTreeNode();
+            documentNames.setEmbeddedFiles(embeddedFilesTree);
+        }
+        return embeddedFilesTree;
+    }
+
+    // Reflection-based ensureIndirect helper: try to call COSDocument.addObject(COSBase)
+    // if available in this PDFBox build. Returns the created COSObject or null.
+    private static org.apache.pdfbox.cos.COSObject ensureIndirect(
+            PDDocument doc, org.apache.pdfbox.cos.COSBase base) {
+        try {
+            java.lang.reflect.Method m =
+                    doc.getDocument()
+                            .getClass()
+                            .getMethod("addObject", org.apache.pdfbox.cos.COSBase.class);
+            Object ret = m.invoke(doc.getDocument(), base);
+            if (ret instanceof org.apache.pdfbox.cos.COSObject obj) return obj;
+        } catch (NoSuchMethodException ignore) {
+            // method not present in this PDFBox build
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+}

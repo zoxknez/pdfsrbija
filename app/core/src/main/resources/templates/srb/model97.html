@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Model 97</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    label{display:block;margin:8px 0 4px}
+    input,button{font:inherit}
+    input{width:480px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .row{display:flex;gap:16px;flex-wrap:wrap}
+    .card{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px;min-width:300px;flex:1}
+    .ok{color:#7dff9a}.bad{color:#ff6b6b}
+  </style>
+    <script src="/js/fetch-utils.js"></script>
+    <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>Model 97</h1>
+
+  <div class="row">
+    <div class="card">
+      <h3>Generator</h3>
+      <label for="base">Osnovni broj (samo cifre)</label>
+      <input id="base" placeholder="npr. 123456789" />
+      <div style="margin-top:10px">
+        <button onclick="gen()">Generiši</button>
+      </div>
+      <div id="genRes" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h3>Validator</h3>
+      <label for="ref">Poziv na broj (ceo, sa kontrolne dve cifre)</label>
+      <input id="ref" placeholder="npr. 12345678912" />
+      <div style="margin-top:10px">
+        <button onclick="val()">Proveri</button>
+      </div>
+      <div id="valRes" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <script>
+    async function gen(){
+      const base = document.getElementById('base').value.replace(/\D/g,'');
+  const r = await window.fetchWithCsrf('/api/model97/generate', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ base })
+      });
+      const data = await r.json();
+      document.getElementById('genRes').innerHTML =
+        `<div><b>Osnovni:</b> ${data.base}</div>
+         <div><b>Kontrolne (97):</b> ${data.control}</div>
+         <div><b>Poziv na broj:</b> ${data.reference}</div>`;
+    }
+    async function val(){
+      const reference = document.getElementById('ref').value.replace(/\s+/g,'');
+  const r = await window.fetchWithCsrf('/api/model97/validate', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ reference })
+      });
+      const data = await r.json();
+      document.getElementById('valRes').innerHTML =
+        `<div><b>Validan:</b> <span class="${data.valid?'ok':'bad'}">${data.valid}</span></div>`;
+    }
+  </script>
+</body>
+</html>

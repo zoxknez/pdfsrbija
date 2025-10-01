@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>IPS-QR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    label{display:block;margin:8px 0 4px}
+    input,select,button,textarea{font:inherit}
+    input,select,textarea{width:520px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .row{display:flex;gap:24px;flex-wrap:wrap;margin-top:12px}
+    .col{flex:1;min-width:320px}
+    .card{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px}
+    .payload{width:100%;min-height:80px}
+    .qrbox{display:flex;align-items:center;justify-content:center;min-height:280px}
+    .hint{opacity:.75}
+  </style>
+    <script src="/js/fetch-utils.js"></script>
+    <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>IPS-QR generator</h1>
+
+  <div class="row">
+    <div class="col">
+      <label>IBAN (RS)</label>
+      <input id="iban" placeholder="RS35260005601001611379" />
+      <label>Primalac</label>
+      <input id="recipient" placeholder="Moja Firma d.o.o." />
+      <label>Iznos (decimalni)</label>
+      <input id="amount" placeholder="1234.56" />
+      <label>Valuta</label>
+      <select id="currency">
+        <option value="RSD" selected>RSD</option>
+        <option value="EUR">EUR</option>
+      </select>
+      <label>Svrha plaćanja</label>
+      <input id="purpose" placeholder="Plaćanje računa 2025/15" />
+      <label>Model</label>
+      <input id="model" value="97" />
+      <label>Poziv na broj</label>
+      <input id="reference" placeholder="12345678912" />
+      <div style="margin-top:10px">
+        <button onclick="gen()">Generiši QR</button>
+      </div>
+      <div class="card">
+        <div class="hint">Payload</div>
+        <textarea id="payload" class="payload" readonly></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="copyPayload()">Kopiraj payload</button>
+          <button onclick="downloadPng()">Preuzmi PNG</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hint">Dekodiraj IPS‑QR iz slike/PDF‑a i popuni formu</div>
+        <label>Slika (PNG/JPG) sa QR‑om</label>
+        <input type="file" id="qrImg" accept="image/*" />
+        <div style="margin-top:6px"><button onclick="decodeFromImage()">Dekodiraj iz slike</button></div>
+        <div style="margin-top:10px"></div>
+        <label>PDF sa QR‑om</label>
+        <input type="file" id="qrPdf" accept="application/pdf" />
+        <label>Strana (1‑based; prazno = poslednja)</label>
+        <input type="number" id="qrPdfPage" min="1" />
+        <div style="margin-top:6px"><button onclick="decodeFromPdf()">Dekodiraj iz PDF</button></div>
+        <div id="decodeInfo" class="hint" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="card qrbox">
+        <img id="qr" alt="QR" style="max-width:100%;border-radius:8px;display:none" />
+      </div>
+      <div class="card">
+        <div class="hint">Ubacivanje QR na PDF</div>
+        <label>PDF</label>
+        <input type="file" id="pdf" accept="application/pdf" />
+        <label>Strana (1‑based; prazno = poslednja)</label>
+        <input type="number" id="pageIndex" min="1" />
+  <label>Više strana (all | first | last | npr. 1,3,5)</label>
+  <input type="text" id="pagesSpec" placeholder="last" />
+        <label>Ugao</label>
+        <select id="corner">
+          <option value="br" selected>Donji desni</option>
+          <option value="bl">Donji levi</option>
+          <option value="tr">Gornji desni</option>
+          <option value="tl">Gornji levi</option>
+        </select>
+        <label>Veličina QR (pt)</label>
+        <input type="number" id="sizePt" value="180" min="48" max="1024" />
+        <label>Margina X (pt)</label>
+        <input type="number" id="marginX" value="36" min="0" max="200" />
+        <label>Margina Y (pt)</label>
+        <input type="number" id="marginY" value="36" min="0" max="200" />
+        <div style="margin-top:8px">
+          <button onclick="overlayToPdf()">Ubaci QR i preuzmi</button>
+          <button onclick="previewOnPdf()" style="margin-left:8px">Preview</button>
+          <button onclick="overlayBatch()" style="margin-left:8px">Ubaci na više strana</button>
+          <button onclick="openInteractive()" style="margin-left:8px">Interaktivni preview</button>
+        </div>
+        <div id="interactive" style="margin-top:10px; display:none">
+          <div class="hint">Prevuci kvadrat (QR) na željenu poziciju. Vrednosti margina će se ažurirati.</div>
+          <canvas id="pageCanvas" style="max-width:100%; border:1px solid #222; border-radius:6px; display:block"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hint">PDF Uplatnica (A4)</div>
+        <div style="margin-top:8px">
+          <button onclick="downloadSlip()">Generiši uplatnicu (PDF)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let lastPng = null;
+    document.addEventListener('DOMContentLoaded', () => {
+      // Učitaj profilne podrazumevane vrednosti, zatim prepiši iz query parametara
+      Promise.resolve(loadProfileDefaults()).finally(() => {
+        loadFromQueryParams();
+      });
+    });
+
+    async function loadProfileDefaults(){
+      try {
+  const r = await window.fetchWithCsrf('/api/admin/profile');
+        if(!r.ok) return;
+        const p = await r.json();
+        const setIfEmpty = (id, val) => { const el = document.getElementById(id); if(el && !el.value) el.value = val || el.value; };
+        setIfEmpty('iban', p.iban);
+        setIfEmpty('recipient', p.companyName);
+        setIfEmpty('currency', p.defaultCurrency || 'RSD');
+        setIfEmpty('model', p.defaultModel || '97');
+      } catch(e) { /* ignore */ }
+    }
+
+    async function gen(){
+      const body = {
+        iban: document.getElementById('iban').value.trim(),
+        recipient: document.getElementById('recipient').value.trim(),
+        amount: document.getElementById('amount').value.trim(),
+        currency: document.getElementById('currency').value,
+        purpose: document.getElementById('purpose').value.trim(),
+        model: document.getElementById('model').value.trim() || '97',
+        reference: document.getElementById('reference').value.replace(/\s+/g,'')
+      };
+  const r = await window.fetchWithCsrf('/api/ipsqr', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      document.getElementById('payload').value = data.payload || '';
+      lastPng = data.qrPngBase64 || null;
+      const img = document.getElementById('qr');
+      if(lastPng){
+        img.src = 'data:image/png;base64,' + lastPng;
+        img.style.display = 'block';
+      } else {
+        img.style.display = 'none';
+      }
+    }
+
+    function loadFromQueryParams(){
+      const q = new URLSearchParams(window.location.search);
+      const set = (id, val) => { if(val != null && val !== '') document.getElementById(id).value = val; };
+      set('iban', q.get('iban'));
+      set('recipient', q.get('recipient'));
+      set('amount', q.get('amount'));
+      if(q.get('currency')) document.getElementById('currency').value = q.get('currency');
+      set('purpose', q.get('purpose'));
+      set('model', q.get('model'));
+      set('reference', q.get('reference'));
+      // Ako imamo bar IBAN i (amount ili purpose), automatski generiši QR
+      const hasIban = (document.getElementById('iban').value||'').trim() !== '';
+      const hasAmount = (document.getElementById('amount').value||'').trim() !== '';
+      const hasPurpose = (document.getElementById('purpose').value||'').trim() !== '';
+      if(hasIban && (hasAmount || hasPurpose)) {
+        setTimeout(gen, 50);
+      }
+    }
+
+    function copyPayload(){
+      const t = document.getElementById('payload');
+      t.select(); t.setSelectionRange(0, 99999);
+      document.execCommand('copy');
+    }
+
+    function downloadPng(){
+      if(!lastPng) return;
+      const a = document.createElement('a');
+      a.href = 'data:image/png;base64,' + lastPng;
+      a.download = 'ips-qr.png';
+      a.click();
+    }
+
+    async function overlayToPdf(){
+      const file = document.getElementById('pdf').files[0];
+      if(!file){ alert('Odaberi PDF.'); return; }
+      const fd = new FormData();
+      fd.append('pdf', file);
+      fd.append('iban', document.getElementById('iban').value.trim());
+      fd.append('recipient', document.getElementById('recipient').value.trim());
+      fd.append('amount', document.getElementById('amount').value.trim());
+      fd.append('currency', document.getElementById('currency').value);
+      fd.append('purpose', document.getElementById('purpose').value.trim());
+      fd.append('model', document.getElementById('model').value.trim() || '97');
+      fd.append('reference', document.getElementById('reference').value.replace(/\s+/g,''));
+  const pageIndex = document.getElementById('pageIndex').value;
+  const corner = document.getElementById('corner').value;
+  if(pageIndex) fd.append('pageIndex', pageIndex);
+  if(corner) fd.append('corner', corner);
+  fd.append('sizePt', document.getElementById('sizePt').value);
+  fd.append('marginX', document.getElementById('marginX').value);
+  fd.append('marginY', document.getElementById('marginY').value);
+
+  const r = await window.fetchWithCsrf('/api/ipsqr/pdf/overlay', { method:'POST', body: fd });
+      if(!r.ok){ alert('Greška pri ugradnji QR-a.'); return; }
+      const blob = await r.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'with-ipsqr.pdf';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    
+      async function previewOnPdf(){
+        const file = document.getElementById('pdf').files[0];
+        if(!file){ alert('Odaberi PDF.'); return; }
+        const fd = new FormData();
+        fd.append('pdf', file);
+        fd.append('iban', document.getElementById('iban').value.trim());
+        fd.append('recipient', document.getElementById('recipient').value.trim());
+        fd.append('amount', document.getElementById('amount').value.trim());
+        fd.append('currency', document.getElementById('currency').value);
+        fd.append('purpose', document.getElementById('purpose').value.trim());
+        fd.append('model', document.getElementById('model').value.trim() || '97');
+        fd.append('reference', document.getElementById('reference').value.replace(/\s+/g,''));
+        const pageIndex = document.getElementById('pageIndex').value;
+        const corner = document.getElementById('corner').value;
+        if(pageIndex) fd.append('pageIndex', pageIndex);
+        if(corner) fd.append('corner', corner);
+        fd.append('sizePt', document.getElementById('sizePt').value);
+        fd.append('marginX', document.getElementById('marginX').value);
+        fd.append('marginY', document.getElementById('marginY').value);
+        fd.append('dpi', '144');
+
+  const r = await window.fetchWithCsrf('/api/ipsqr/pdf/preview', { method:'POST', body: fd });
+        if(!r.ok){ alert('Greška pri preview-u.'); return; }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        // Reuse QR image container to show preview
+        const img = document.getElementById('qr');
+        img.src = url;
+        img.style.display = 'block';
+      }
+
+      async function overlayBatch(){
+        const file = document.getElementById('pdf').files[0];
+        if(!file){ alert('Odaberi PDF.'); return; }
+        const fd = new FormData();
+        fd.append('pdf', file);
+        fd.append('iban', document.getElementById('iban').value.trim());
+        fd.append('recipient', document.getElementById('recipient').value.trim());
+        fd.append('amount', document.getElementById('amount').value.trim());
+        fd.append('currency', document.getElementById('currency').value);
+        fd.append('purpose', document.getElementById('purpose').value.trim());
+        fd.append('model', document.getElementById('model').value.trim() || '97');
+        fd.append('reference', document.getElementById('reference').value.replace(/\s+/g,''));
+        const pagesSpec = document.getElementById('pagesSpec').value || 'last';
+        fd.append('pagesSpec', pagesSpec);
+        const corner = document.getElementById('corner').value;
+        if(corner) fd.append('corner', corner);
+        fd.append('sizePt', document.getElementById('sizePt').value);
+        fd.append('marginX', document.getElementById('marginX').value);
+        fd.append('marginY', document.getElementById('marginY').value);
+
+  const r = await window.fetchWithCsrf('/api/ipsqr/pdf/overlay-batch', { method:'POST', body: fd });
+        if(!r.ok){ alert('Greška pri ugradnji QR-a (batch).'); return; }
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'with-ipsqr.pdf';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+
+      async function decodeFromImage(){
+        const f = document.getElementById('qrImg').files[0];
+        if(!f){ alert('Odaberi sliku.'); return; }
+        const fd = new FormData(); fd.append('file', f);
+  const r = await window.fetchWithCsrf('/api/ipsqr/decode/image', { method:'POST', body: fd });
+        if(!r.ok){ alert('Nije moguće dekodirati QR iz slike.'); return; }
+        const j = await r.json();
+        fillFromFields(j.fields || {});
+        document.getElementById('payload').value = j.payload || '';
+        document.getElementById('decodeInfo').textContent = 'Dekodirano iz slike.';
+      }
+
+      async function decodeFromPdf(){
+        const f = document.getElementById('qrPdf').files[0];
+        if(!f){ alert('Odaberi PDF.'); return; }
+        const fd = new FormData(); fd.append('pdf', f);
+        const pg = document.getElementById('qrPdfPage').value; if(pg) fd.append('pageIndex', pg);
+  const r = await window.fetchWithCsrf('/api/ipsqr/decode/pdf', { method:'POST', body: fd });
+        if(!r.ok){ alert('Nije moguće dekodirati QR iz PDF-a.'); return; }
+        const j = await r.json();
+        fillFromFields(j.fields || {});
+        document.getElementById('payload').value = j.payload || '';
+        document.getElementById('decodeInfo').textContent = 'Dekodirano iz PDF-a.';
+      }
+
+      function fillFromFields(f){
+        const set = (id, v) => { if(v != null && v !== '') document.getElementById(id).value = v; };
+        set('iban', f.iban);
+        set('recipient', f.recipient);
+        set('amount', f.amount);
+        if(f.currency) document.getElementById('currency').value = f.currency;
+        set('purpose', f.purpose);
+        set('model', f.model);
+        set('reference', f.reference);
+        // posle popunjavanja, generiši QR da se vidi
+        setTimeout(gen, 50);
+      }
+
+      // --- Interaktivni preview ---
+      let drag = { active:false, startX:0, startY:0 };
+      let qrBox = { x:0, y:0, w:180, h:180 }; // u pikselima na canvasu
+      let canvasScale = 1; // px po PDF pt (dpi/72)
+      let pagePxH = 0;
+
+      async function openInteractive(){
+        const file = document.getElementById('pdf').files[0];
+        if(!file){ alert('Odaberi PDF.'); return; }
+        const fd = new FormData();
+        fd.append('pdf', file);
+        const pageIndex = document.getElementById('pageIndex').value;
+        if(pageIndex) fd.append('pageIndex', pageIndex);
+        fd.append('dpi', '144');
+  const r = await window.fetchWithCsrf('/api/ipsqr/pdf/page', { method:'POST', body: fd });
+        if(!r.ok){ alert('Greška pri renderovanju strane.'); return; }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          const cv = document.getElementById('pageCanvas');
+          const ctx = cv.getContext('2d');
+          cv.width = img.width; cv.height = img.height;
+          pagePxH = img.height;
+          ctx.clearRect(0,0,cv.width,cv.height);
+          ctx.drawImage(img, 0, 0);
+          const sizePt = parseFloat(document.getElementById('sizePt').value || '180');
+          canvasScale = 144/72; // dpi/72
+          const drawW = Math.max(1, Math.round(sizePt * canvasScale));
+          const drawH = drawW;
+          // inicijalno BR
+          const mX = parseFloat(document.getElementById('marginX').value || '36');
+          const mY = parseFloat(document.getElementById('marginY').value || '36');
+          qrBox.w = drawW; qrBox.h = drawH;
+          qrBox.x = img.width - Math.round(mX*canvasScale) - drawW;
+          // PDF coord -> canvas: y iz dna; pa top-left y = imgH - (mY + h)*scale
+          qrBox.y = img.height - Math.round((mY + sizePt) * canvasScale);
+          draw();
+          enableDrag();
+          document.getElementById('interactive').style.display = '';
+        };
+        img.src = url;
+      }
+
+      function draw(){
+        const cv = document.getElementById('pageCanvas');
+        const ctx = cv.getContext('2d');
+        // pozadina ostaje nacrtana; precrtajmo okvir
+        ctx.strokeStyle = '#00d4ff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(qrBox.x, qrBox.y, qrBox.w, qrBox.h);
+        ctx.fillStyle = 'rgba(0,212,255,0.12)';
+        ctx.fillRect(qrBox.x, qrBox.y, qrBox.w, qrBox.h);
+      }
+
+      function enableDrag(){
+        const cv = document.getElementById('pageCanvas');
+        cv.onmousedown = (e) => {
+          const rect = cv.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          if(x>=qrBox.x && x<=qrBox.x+qrBox.w && y>=qrBox.y && y<=qrBox.y+qrBox.h){
+            drag.active = true; drag.startX = x - qrBox.x; drag.startY = y - qrBox.y;
+          }
+        };
+        cv.onmousemove = (e) => {
+          if(!drag.active) return;
+          const rect = cv.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          qrBox.x = Math.max(0, Math.min(cv.width - qrBox.w, x - drag.startX));
+          qrBox.y = Math.max(0, Math.min(cv.height - qrBox.h, y - drag.startY));
+          // Redraw: clear and redraw background isn't trivial without caching; draw overlay only
+          // Simple approach: reload background via toDataURL snapshot is heavy; instead clear and re-request page image is overkill.
+          // We’ll approximate: draw translucent box repeatedly (acceptable for dev tool).
+          const ctx = cv.getContext('2d');
+          ctx.clearRect(0,0,cv.width,cv.height);
+          // Note: background image can be re-drawn by keeping last Image; for brevity assume cached by openInteractive scope.
+          // Re-render background by triggering openInteractive isn't desirable during drag; keep it simple by drawing box only if flicker occurs.
+          // As a compromise, skip background redraw to avoid heavy operations.
+          // Better: store last page bitmap to redraw. Implement that now:
+        };
+        cv.onmouseup = () => { drag.active = false; syncMarginsFromBox(); redrawWithBackground(); };
+        cv.onmouseleave = () => { drag.active = false; syncMarginsFromBox(); redrawWithBackground(); };
+      }
+
+      let lastBgImg = null;
+      function redrawWithBackground(){
+        const cv = document.getElementById('pageCanvas');
+        const ctx = cv.getContext('2d');
+        if(lastBgImg){ ctx.drawImage(lastBgImg, 0, 0); }
+        draw();
+      }
+
+      // Override openInteractive image onload to cache background
+      // (Monkey patch pattern to keep minimal changes)
+      (function(){
+        const orig = openInteractive;
+        openInteractive = async function(){
+          const file = document.getElementById('pdf').files[0];
+          if(!file){ alert('Odaberi PDF.'); return; }
+          const fd = new FormData();
+          fd.append('pdf', file);
+          const pageIndex = document.getElementById('pageIndex').value;
+          if(pageIndex) fd.append('pageIndex', pageIndex);
+          fd.append('dpi', '144');
+          const r = await window.fetchWithCsrf('/api/ipsqr/pdf/page', { method:'POST', body: fd });
+          if(!r.ok){ alert('Greška pri renderovanju strane.'); return; }
+          const blob = await r.blob();
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
+            const cv = document.getElementById('pageCanvas');
+            const ctx = cv.getContext('2d');
+            cv.width = img.width; cv.height = img.height;
+            pagePxH = img.height;
+            lastBgImg = img;
+            ctx.clearRect(0,0,cv.width,cv.height);
+            ctx.drawImage(img, 0, 0);
+            const sizePt = parseFloat(document.getElementById('sizePt').value || '180');
+            canvasScale = 144/72;
+            const drawW = Math.max(1, Math.round(sizePt * canvasScale));
+            const drawH = drawW;
+            const mX = parseFloat(document.getElementById('marginX').value || '36');
+            const mY = parseFloat(document.getElementById('marginY').value || '36');
+            qrBox.w = drawW; qrBox.h = drawH;
+            qrBox.x = img.width - Math.round(mX*canvasScale) - drawW;
+            qrBox.y = img.height - Math.round((mY + sizePt) * canvasScale);
+            draw();
+            enableDrag();
+            document.getElementById('interactive').style.display = '';
+          };
+          img.src = url;
+        }
+      })();
+
+      function syncMarginsFromBox(){
+        // iz canvas koordinata vrati marginX/marginY u pt
+        const sizePt = parseFloat(document.getElementById('sizePt').value || '180');
+        const mXpt = Math.max(0, Math.round(((lastBgImg.width - qrBox.x - qrBox.w) / canvasScale)));
+        const mYpt = Math.max(0, Math.round(((pagePxH - (qrBox.y + qrBox.h)) / canvasScale)));
+        document.getElementById('marginX').value = mXpt.toString();
+        document.getElementById('marginY').value = mYpt.toString();
+      }
+
+      async function downloadSlip(){
+        const params = new URLSearchParams({
+          iban: document.getElementById('iban').value.trim(),
+          recipient: document.getElementById('recipient').value.trim(),
+          amount: document.getElementById('amount').value.trim(),
+          currency: document.getElementById('currency').value,
+          purpose: document.getElementById('purpose').value.trim(),
+          model: document.getElementById('model').value.trim() || '97',
+          reference: document.getElementById('reference').value.replace(/\s+/g,'')
+        });
+  const r = await window.fetchWithCsrf('/api/ipsqr/slip', { method:'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: params });
+        if(!r.ok){ alert('Greška pri generisanju uplatnice.'); return; }
+        const blob = await r.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'ips-qr-slip.pdf';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+  </script>
+</body>
+</html>

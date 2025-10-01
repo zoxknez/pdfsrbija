@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>JMBG provera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    label{display:block;margin:8px 0 4px}
+    input,button{font:inherit}
+    input{width:420px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .out{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .grid .item{padding:8px;border:1px solid #1d1d1d;border-radius:8px;background:#0f0f0f}
+    .muted{color:#aaa}
+    .ok{color:#7dff9a}.bad{color:#ff6b6b}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>JMBG provera</h1>
+  <p>Unesite JMBG (13 cifara). Biće proverena kontrolna cifra i izvučeni osnovni podaci.</p>
+
+  <label for="jmbg">JMBG</label>
+  <input id="jmbg" type="text" placeholder="0101993500006" />
+  <div style="margin-top:10px">
+    <button id="btnCheck">Proveri</button>
+  </div>
+
+  <div id="summary" class="out" hidden></div>
+
+  <div id="details" class="grid" style="display:none;">
+    <div class="item"><strong>Datum rođenja:</strong> <span id="birthDate"></span></div>
+    <div class="item"><strong>Region:</strong> <span id="region"></span></div>
+    <div class="item"><strong>Redni broj:</strong> <span id="sequence"></span> <span id="gender" class="muted"></span></div>
+    <div class="item"><strong>Normalizovan:</strong> <span id="normalized"></span></div>
+  </div>
+
+  <script>
+    document.getElementById('btnCheck').addEventListener('click', async () => {
+      const jmbg = document.getElementById('jmbg').value.trim();
+  const r = await window.fetchWithCsrf('/api/jmbg/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jmbg })
+      });
+      const data = await r.json();
+
+      const summary = document.getElementById('summary');
+      const details = document.getElementById('details');
+
+      if (!data.valid) {
+        summary.hidden = false;
+        summary.innerHTML = `<span class="bad">JMBG NIJE ispravan</span>${data.error ? ' (' + data.error + ')' : ''}`;
+        details.style.display = 'none';
+        return;
+      }
+
+      summary.hidden = false;
+      summary.innerHTML = '<span class="ok">JMBG je ispravan</span>';
+      document.getElementById('birthDate').textContent = data.birthDate || '';
+      document.getElementById('region').textContent = data.region || '';
+      document.getElementById('sequence').textContent = data.sequence != null ? data.sequence : '';
+      document.getElementById('gender').textContent = data.gender ? `(${data.gender})` : '';
+      document.getElementById('normalized').textContent = data.normalized || '';
+      details.style.display = '';
+    });
+  </script>
+</body>
+</html>

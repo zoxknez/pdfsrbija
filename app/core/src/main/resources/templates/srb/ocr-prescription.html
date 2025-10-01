@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8" />
+  <title>OCR – Recept (SRB)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    .card{background:#101010;border:1px solid #1d1d1d;border-radius:12px;padding:16px;max-width:820px}
+    pre{white-space:pre-wrap;background:#0f0f0f;padding:12px;border-radius:8px;border:1px solid #222;overflow:auto}
+    input,button{font:inherit;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{cursor:pointer}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+  </head>
+<body>
+  <div class="card">
+    <h2>OCR – Recept (SRB)</h2>
+    <input type="file" id="f" accept="application/pdf,image/png,image/jpeg" />
+    <div style="margin-top:8px;display:flex;gap:8px">
+      <button id="go">Prepoznaj</button>
+      <button id="prev">Prikaži zone</button>
+    </div>
+    <div style="margin-top:12px">
+      <img id="preview" alt="Preview sa zonama" style="max-width:100%;display:none;border:1px solid #222;border-radius:8px"/>
+    </div>
+    <h3 style="margin-top:16px">Rezultat</h3>
+    <pre id="out">{}</pre>
+  </div>
+  <script>
+    document.getElementById('go').onclick = async () => {
+      const f = document.getElementById('f').files[0]; if(!f){alert('Izaberi fajl');return;}
+      const fd = new FormData(); fd.append('file', f);
+  const r = await window.fetchWithCsrf('/api/ocr/prescription', { method:'POST', body: fd });
+      const j = await r.json();
+      // Pretty print with validations on top
+      const v = j.validations || {};
+      const head = { validations: v };
+      const combined = Object.assign(head, j);
+      document.getElementById('out').textContent = JSON.stringify(combined, null, 2);
+    };
+
+    document.getElementById('prev').onclick = async () => {
+      const f = document.getElementById('f').files[0]; if(!f){alert('Izaberi fajl');return;}
+      const fd = new FormData(); fd.append('file', f);
+  const r = await window.fetchWithCsrf('/api/ocr/prescription/preview?dpi=150', { method:'POST', body: fd });
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const img = document.getElementById('preview');
+      img.src = url; img.style.display = 'block';
+    };
+  </script>
+</body>
+</html>

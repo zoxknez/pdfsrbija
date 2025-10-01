@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+	<meta charset="utf-8">
+	<title>E-Faktura (SEF)</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+		label{display:block;margin:8px 0 4px}
+		input,button{font:inherit}
+		input{width:520px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+		button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+		.row{display:flex;gap:16px;flex-wrap:wrap}
+		.card{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px;min-width:300px;flex:1}
+		.ok{color:#7dff9a}.bad{color:#ff6b6b}.muted{opacity:.8}
+		table{width:100%;border-collapse:collapse;margin-top:8px}
+		th,td{border-bottom:1px solid #222;padding:6px 8px;text-align:left}
+	</style>
+	<script src="/js/fetch-utils.js"></script>
+	<script src="/js/csrf.js"></script>
+</head>
+<body>
+	<h1>E-Faktura (SEF)</h1>
+	<div class="row">
+		<div class="card">
+			<label>UBL (Invoice-2 XML)</label>
+			<input type="file" id="ubl" accept=".xml,application/xml,text/xml" />
+			<div style="margin-top:8px">
+				<button onclick="parseUbl()">Prikaži sažetak</button>
+				<button onclick="draft()" style="margin-left:8px">Kreiraj DRAFT</button>
+				<button onclick="openIpsQr()" style="margin-left:8px">→ IPS‑QR</button>
+			</div>
+			<div id="summary" class="muted" style="margin-top:10px"></div>
+			<div id="draftInfo" class="muted" style="margin-top:6px"></div>
+			<div style="margin-top:8px">
+				<label>Draft ID</label>
+				<input id="draftId" placeholder="unesi ID ili koristi poslednji" />
+				<button onclick="submitDraft()" style="margin-top:6px">SUBMIT</button>
+			</div>
+			<div style="margin-top:8px">
+				<label>Invoice ID</label>
+				<input id="invId" placeholder="za proveru statusa" />
+				<button onclick="checkStatus()" style="margin-top:6px">STATUS</button>
+				<button onclick="cancelInvoice()" style="margin-top:6px;margin-left:6px">OTKAŽI</button>
+				<button onclick="stornoInvoice()" style="margin-top:6px;margin-left:6px">STORNO</button>
+			</div>
+			<div id="statusInfo" class="muted" style="margin-top:6px"></div>
+		</div>
+	</div>
+
+	<script>
+		function getUbl(){ return document.getElementById('ubl').files[0]; }
+		let lastDraftId = '';
+
+		async function parseUbl(){
+			const u = getUbl(); if(!u){ alert('Odaberi UBL XML.'); return; }
+			const fd = new FormData(); fd.append('ubl', u);
+			const r = await window.fetchWithCsrf('/api/sef/parse', { method:'POST', body: fd });
+			if(!r.ok){ alert('Greška pri parsiranju.'); return; }
+			const j = await r.json();
+			document.getElementById('summary').innerHTML = `
+				<table>
+					<tbody>
+						<tr><td><b>ID</b></td><td>${escape(j.id)}</td></tr>
+						<tr><td><b>Datum</b></td><td>${escape(j.issueDate)}</td></tr>
+						<tr><td><b>Iznos</b></td><td>${escape(j.amount)} ${escape(j.currency)}</td></tr>
+						<tr><td><b>Dobavljač</b></td><td>${escape(j.supplier)}</td></tr>
+						<tr><td><b>Kupac</b></td><td>${escape(j.customer)}</td></tr>
+						<tr><td><b>IBAN</b></td><td>${escape(j.iban)}</td></tr>
+					</tbody>
+				</table>`;
+		}
+
+		async function draft(){
+			const u = getUbl(); if(!u){ alert('Odaberi UBL XML.'); return; }
+			const fd = new FormData(); fd.append('ubl', u);
+			const r = await window.fetchWithCsrf('/api/sef/draft', { method:'POST', body: fd });
+			const j = await r.json();
+			lastDraftId = j.id || '';
+			document.getElementById('draftInfo').textContent = `Draft: ${j.status || ''} (${j.id || ''}) [${j.mode}]`;
+			document.getElementById('draftId').value = lastDraftId;
+		}
+
+		async function submitDraft(){
+			const draftId = document.getElementById('draftId').value || lastDraftId;
+			if(!draftId){ alert('Nema draft ID.'); return; }
+			const params = new URLSearchParams({ draftId });
+			const r = await window.fetchWithCsrf('/api/sef/submit', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params });
+			const j = await r.json();
+			document.getElementById('statusInfo').textContent = `Submit: ${JSON.stringify(j)}`;
+		}
+
+		async function checkStatus(){
+			const id = document.getElementById('invId').value || lastDraftId;
+			if(!id){ alert('Unesi ID.'); return; }
+			const r = await window.fetchWithCsrf(`/api/sef/status?id=${encodeURIComponent(id)}`);
+			const j = await r.json();
+			document.getElementById('statusInfo').textContent = `Status: ${JSON.stringify(j)}`;
+		}
+
+		async function cancelInvoice(){
+			const id = document.getElementById('invId').value || lastDraftId;
+			if(!id){ alert('Unesi ID za otkazivanje.'); return; }
+			const r = await window.fetchWithCsrf(`/api/sef/cancel?id=${encodeURIComponent(id)}`);
+			const j = await r.json();
+			document.getElementById('statusInfo').textContent = `Cancel: ${JSON.stringify(j)}`;
+		}
+
+		async function stornoInvoice(){
+			const id = document.getElementById('invId').value || lastDraftId;
+			if(!id){ alert('Unesi ID za storno.'); return; }
+			const params = new URLSearchParams({ id });
+			const r = await window.fetchWithCsrf('/api/sef/storno', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: params });
+			const j = await r.json();
+			document.getElementById('statusInfo').textContent = `Storno: ${JSON.stringify(j)}`;
+		}
+
+		function escape(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+		async function openIpsQr(){
+			const u = getUbl(); if(!u){ alert('Najpre učitaj UBL da bismo popunili podatke.'); return; }
+			const fd = new FormData(); fd.append('ubl', u);
+			const r = await window.fetchWithCsrf('/api/sef/parse', { method:'POST', body: fd });
+			if(!r.ok){ alert('Greška pri parsiranju.'); return; }
+			const j = await r.json();
+			// Mapiraj podatke: IBAN, primalac, iznos, valuta, svrha, model, poziv na broj
+			const qp = new URLSearchParams();
+			if(j.iban) qp.set('iban', j.iban);
+			if(j.supplier) qp.set('recipient', j.supplier);
+			if(j.amount) qp.set('amount', j.amount);
+			if(j.currency) qp.set('currency', j.currency);
+			if(j.id) qp.set('reference', j.id);
+			// Svrha plaćanja: kratko opisati; možeš prilagoditi po potrebi
+			qp.set('purpose', `Plaćanje računa ${j.id||''}`.trim());
+			qp.set('model', '97');
+			const url = `/ipsqr?${qp.toString()}`;
+			window.open(url, '_blank', 'noopener');
+		}
+	</script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>IBAN (RS) provera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    label{display:block;margin:8px 0 4px}
+    input,button{font:inherit}
+    input{width:480px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .out{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px}
+    .ok{color:#7dff9a}.bad{color:#ff6b6b}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>IBAN (RS) provera</h1>
+  <label for="iban">IBAN</label>
+  <input id="iban" placeholder="npr. RS35260005601001611379" />
+  <div style="margin-top:10px">
+    <button onclick="check()">Proveri</button>
+  </div>
+
+  <div class="out" id="res" hidden></div>
+
+  <script>
+    async function check(){
+      const iban = document.getElementById('iban').value.trim();
+  const r = await window.fetchWithCsrf('/api/iban/validate', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ iban })
+      });
+      const data = await r.json();
+      const el = document.getElementById('res');
+      el.hidden = false;
+      el.innerHTML = `
+        <div><b>Formatiran:</b> ${data.iban || ''}</div>
+        <div><b>Zemlja:</b> ${data.country || ''} &nbsp; <b>Dužina:</b> ${data.length}</div>
+        <div><b>Validan:</b> <span class="${data.valid?'ok':'bad'}">${data.valid}</span></div>
+        <div><b>RS pravilima:</b> <span class="${data.validRS?'ok':'bad'}">${data.validRS}</span></div>
+      `;
+    }
+  </script>
+</body>
+</html>

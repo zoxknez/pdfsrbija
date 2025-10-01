@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Transliteracija</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    textarea,select,button{font:inherit}
+    textarea{width:100%;min-height:160px;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    select,button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .row{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px}
+    .col{flex:1;min-width:300px}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>Transliteracija (Latinica ↔ Ćirilica)</h1>
+
+  <div class="row">
+    <div class="col">
+      <label>Smer</label>
+      <select id="dir">
+        <option value="lat2cyr">Latinica → Ćirilica</option>
+        <option value="cyr2lat">Ćirilica → Latinica</option>
+      </select>
+      <label style="margin-top:8px">Ulaz</label>
+      <textarea id="in">Džemper Ljilja – Njiva, đak, ćumur, šuma, čarolija.</textarea>
+      <div style="margin-top:10px">
+        <button onclick="go()">Transliteruj</button>
+      </div>
+    </div>
+    <div class="col">
+      <label>Rezultat</label>
+      <textarea id="out" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    async function go(){
+      const text = document.getElementById('in').value;
+      const direction = document.getElementById('dir').value;
+  const r = await window.fetchWithCsrf('/api/translit', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text, direction })
+      });
+      const data = await r.json();
+      document.getElementById('out').value = data.text || '';
+    }
+    go();
+  </script>
+</body>
+</html>

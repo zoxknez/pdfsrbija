@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>SRBIJA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans","Helvetica Neue",Arial,sans-serif;margin:24px;color:#eaeaea;background:#0b0b0b}
+    a{color:#8cd2ff;text-decoration:none} a:hover{text-decoration:underline}
+    .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    .card{background:#111;border:1px solid #1d1d1d;border-radius:14px;padding:16px}
+    .title{font-weight:600;margin-bottom:8px}
+    .desc{opacity:.75}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>SRBIJA – alati</h1>
+  <div class="grid">
+  <a class="card" href="/iban" target="_blank" rel="noopener noreferrer"><div class="title">IBAN (RS) provera</div><div class="desc">Checksum + lepo formatiranje.</div></a>
+  <a class="card" href="/model97" target="_blank" rel="noopener noreferrer"><div class="title">Model 97</div><div class="desc">Generator i validator poziva na broj.</div></a>
+  <a class="card" href="/translit" target="_blank" rel="noopener noreferrer"><div class="title">Transliteracija</div><div class="desc">Latinica ↔ Ćirilica.</div></a>
+  <a class="card" href="/ipsqr" target="_blank" rel="noopener noreferrer"><div class="title">IPS-QR</div><div class="desc">Payload + QR PNG (Base64).</div></a>
+
+  <a class="card" href="/ocr-prescription" target="_blank" rel="noopener noreferrer"><div class="title">OCR Recept (SRB)</div><div class="desc">Prepoznavanje sa štampanih recepata.</div></a>
+
+    <!-- stubovi za dalje -->
+  <a class="card" href="/sef" target="_blank" rel="noopener noreferrer"><div class="title">E-Faktura (SEF)</div><div class="desc">UBL → Draft/Submit → Status.</div></a>
+  <a class="card" href="/pdfa3" target="_blank" rel="noopener noreferrer"><div class="title">PDF/A-3</div><div class="desc">Konverzija + AF prilog.</div></a>
+  <a class="card" href="/admin" target="_blank" rel="noopener noreferrer"><div class="title">Profil firme</div><div class="desc">PIB, IBAN, PDV, NKD, logo/pečat…</div></a>
+  </div>
+</body>
+</html>

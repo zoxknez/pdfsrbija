@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+	<meta charset="utf-8">
+	<title>Profil firme</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<style>
+		body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+		label{display:block;margin:8px 0 4px}
+		input,button{font:inherit}
+		input{width:520px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+		button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+		.row{display:flex;gap:16px;flex-wrap:wrap}
+		.card{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px;min-width:300px;flex:1}
+		.ok{color:#7dff9a}.bad{color:#ff6b6b}
+	</style>
+	<script src="/js/fetch-utils.js"></script>
+	<script src="/js/csrf.js"></script>
+	</head>
+<body>
+	<h1>Profil firme (SRB)</h1>
+	<div class="row">
+		<div class="card">
+			<label>Naziv kompanije</label>
+			<input id="companyName">
+			<label>PIB</label>
+			<input id="pib">
+			<label>IBAN</label>
+			<input id="iban">
+			<label>Adresa</label>
+			<input id="address">
+			<label>Grad</label>
+			<input id="city">
+			<label>Poštanski broj</label>
+			<input id="postalCode">
+			<label>E-mail</label>
+			<input id="email">
+			<label>Telefon</label>
+			<input id="phone">
+			<label>Podrazumevana valuta</label>
+			<input id="defaultCurrency" value="RSD">
+			<label>Model poziva</label>
+			<input id="defaultModel" value="97">
+			<label>Logo (putanja)</label>
+			<input id="logoPath" placeholder="/customFiles/static/logo.png">
+			<div style="margin-top:12px">
+				<button onclick="save()">Sačuvaj</button>
+				<button onclick="load()">Osveži</button>
+			</div>
+			<div id="msg" style="margin-top:8px;opacity:.8"></div>
+		</div>
+	</div>
+
+	<script>
+		function getForm(){
+			return {
+				companyName: v('companyName'), pib: v('pib'), iban: v('iban'),
+				address: v('address'), city: v('city'), postalCode: v('postalCode'),
+				email: v('email'), phone: v('phone'), defaultCurrency: v('defaultCurrency'),
+				defaultModel: v('defaultModel'), logoPath: v('logoPath')
+			};
+		}
+		function v(id){ return document.getElementById(id).value.trim(); }
+		function f(id,val){ document.getElementById(id).value = val ?? ''; }
+
+		async function load(){
+			const r = await window.fetchWithCsrf('/api/admin/profile');
+			const p = await r.json();
+			f('companyName', p.companyName); f('pib', p.pib); f('iban', p.iban);
+			f('address', p.address); f('city', p.city); f('postalCode', p.postalCode);
+			f('email', p.email); f('phone', p.phone);
+			f('defaultCurrency', p.defaultCurrency || 'RSD');
+			f('defaultModel', p.defaultModel || '97');
+			f('logoPath', p.logoPath);
+			document.getElementById('msg').textContent = 'Učitano.';
+		}
+
+		async function save(){
+			const body = getForm();
+			const r = await window.fetchWithCsrf('/api/admin/profile',{
+				method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+			});
+			if(!r.ok){ document.getElementById('msg').textContent = 'Greška pri čuvanju.'; return; }
+			document.getElementById('msg').textContent = 'Sačuvano.';
+		}
+
+		load();
+	</script>
+</body>
+</html>

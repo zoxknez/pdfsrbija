@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>PIB provera</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui;margin:24px;color:#eaeaea;background:#0b0b0b}
+    label{display:block;margin:8px 0 4px}
+    input,button{font:inherit}
+    input{width:420px;max-width:100%;padding:10px;border-radius:10px;border:1px solid #2a2a2a;background:#121212;color:#fff}
+    button{padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;cursor:pointer}
+    .out{margin-top:16px;padding:12px;background:#101010;border:1px solid #1d1d1d;border-radius:12px}
+    .ok{color:#7dff9a}.bad{color:#ff6b6b}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+</head>
+<body>
+  <h1>PIB provera</h1>
+  <p>Unesite PIB (9 cifara). Računa se kontrolna cifra i proverava ispravnost.</p>
+  <label for="pib">PIB</label>
+  <input id="pib" type="text" placeholder="123456789" />
+  <div style="margin-top:10px">
+    <button id="btnCheck">Proveri</button>
+  </div>
+  <div id="result" class="out" hidden></div>
+
+  <script>
+    document.getElementById('btnCheck').addEventListener('click', async () => {
+      const pib = document.getElementById('pib').value.trim();
+  const r = await window.fetchWithCsrf('/api/pib/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pib })
+      });
+      const data = await r.json();
+      const el = document.getElementById('result');
+      el.hidden = false;
+      el.innerHTML = `
+        <div><b>Uneto:</b> ${pib || ''}</div>
+        <div><b>Validno:</b> <span class="${data.valid?'ok':'bad'}">${data.valid ? 'DA' : 'NE'}</span></div>
+      `;
+    });
+  </script>
+</body>
+</html>

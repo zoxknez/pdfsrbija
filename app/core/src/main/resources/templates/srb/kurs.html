@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kursna lista (NBS)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Noto Sans","Helvetica Neue",Arial,sans-serif;margin:24px;color:#eaeaea;background:#0b0b0b}
+    .card{background:#111;border:1px solid #1d1d1d;border-radius:14px;padding:16px;max-width:720px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #222}
+    th{text-align:left;color:#bdbdbd}
+    input{padding:.5rem;border-radius:8px;border:1px solid #333;background:#0f0f0f;color:#eee}
+  </style>
+  <script src="/js/fetch-utils.js"></script>
+  <script src="/js/csrf.js"></script>
+  <script>
+    async function loadRates(){
+      const d = document.getElementById('date').value;
+  const url = d ? `/api/kurs/danas?date=${encodeURIComponent(d)}` : '/api/kurs/danas';
+      const r = await window.fetchWithCsrf(url);
+      if (!r.ok) { alert('Greška pri učitavanju kursne liste'); return; }
+      const data = await r.json();
+      const tbody = document.querySelector('#tbl tbody');
+      tbody.innerHTML = '';
+      Object.entries(data).forEach(([code, rate]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${code}</td><td>${rate}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      loadRates();
+    });
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h2>Kursna lista (NBS)</h2>
+    <label>Datum</label>
+    <input type="date" id="date" />
+    <button onclick="loadRates()">Učitaj</button>
+    <table id="tbl">
+      <thead><tr><th>Valuta</th><th>Srednji kurs (RSD)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</body>
+</html>
