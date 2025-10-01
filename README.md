@@ -151,7 +151,6 @@ PR‑ovi su dobrodošli. Za veće izmene, prvo otvori issue ili kontaktiraj nas 
 
 Hvala što koristiš o0o0o0o! 🇷🇸
 <p align="center"><img src="https://raw.githubusercontent.com/Stirling-Tools/Stirling-PDF/main/docs/stirling.png" width="80"></p>
-<h1 align="center">Stirling-PDF</h1>
 
 ## Doprinosi
 PR‑ovi su dobrodošli. Za veće izmene, prvo otvori issue ili kontaktiraj nas sa kratkim opisom.
