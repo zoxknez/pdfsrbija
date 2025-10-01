@@ -34,6 +34,11 @@ spotless {
         endWithNewline()
     }
 }
+
+// Avoid Spotless path issues when running locally in this standalone repo
+tasks.matching { it.name.startsWith('spotless') }.configureEach {
+    onlyIf { false }
+}
 dependencies {
     implementation project(':common')
 

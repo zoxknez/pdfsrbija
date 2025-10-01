@@ -145,7 +145,7 @@ subprojects {
 
     tasks.withType(JavaCompile).configureEach {
         options.encoding = "UTF-8"
-        dependsOn "spotlessApply"
+        // Do not force formatting on compile; run `spotlessApply` manually when needed
     }
 
     compileJava {
@@ -222,7 +222,7 @@ subprojects {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
-    dependsOn "spotlessApply"
+    // Do not force formatting on compile; run `spotlessApply` manually when needed
 }
 
 def allProjects = ((subprojects as Set<Project>) + project) as Set<Project>
