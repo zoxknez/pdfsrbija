@@ -440,6 +440,10 @@ public class EndpointConfiguration {
         addEndpointToGroup("Pdftohtml", "pdf-to-html");
         addEndpointToGroup("Pdftohtml", "pdf-to-markdown");
 
+    // CAD conversions (DWG↔PDF)
+    addEndpointToGroup("CAD", "dwg-to-pdf");
+    addEndpointToGroup("CAD", "pdf-to-dwg");
+
         // --- SRB specific endpoints (always enabled by default) ---
         // These are custom web tools that don't depend on external tool groups.
         // Explicitly mark them enabled so UI fragments that check endpoint status render.
@@ -496,7 +500,8 @@ public class EndpointConfiguration {
                 || "Java".equals(group)
                 || "Javascript".equals(group)
                 || "Weasyprint".equals(group)
-                || "Pdftohtml".equals(group);
+                || "Pdftohtml".equals(group)
+                || "CAD".equals(group);
     }
 
     private boolean isEndpointEnabledDirectly(String endpoint) {

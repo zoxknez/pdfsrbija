@@ -44,7 +44,7 @@ ext.isSecurityDisabled = { ->
 jar {
     enabled = false
     manifest {
-        attributes "Implementation-Title": "Stirling-PDF",
+        attributes "Implementation-Title": "o0o0o0o",
             "Implementation-Version": project.version
     }
 }
@@ -255,10 +255,10 @@ jpackage {
     input = layout.projectDirectory.dir("app/core/build/libs")
     destination = layout.projectDirectory.dir("build/jpackage")
     mainJar = "Stirling-PDF-${project.version}.jar"
-    appName = "Stirling PDF"
+    appName = "o0o0o0o"
     appVersion = project.version
-    vendor = "Stirling PDF Inc"
-    appDescription = "Stirling PDF - Your Local PDF Editor"
+    vendor = "o0o0o0o"
+    appDescription = "o0o0o0o - Your Local PDF Editor"
     icon = layout.projectDirectory.file("app/core/src/main/resources/static/favicon.ico")
     verbose = true
 //    mainClass = "org.springframework.boot.loader.launch.JarLauncher"
@@ -266,7 +266,8 @@ jpackage {
     // JVM Options
     javaOptions = [
         "-DBROWSER_OPEN=true",
-        "-DSTIRLING_PDF_DESKTOP_UI=true",
+        // Otvaraj u podrazumevanom browseru, ne u desktop (JCEF) UI
+        "-DSTIRLING_PDF_DESKTOP_UI=false",
         "-DDISABLE_ADDITIONAL_FEATURES=false",
         "-Djava.awt.headless=false",
         "-Dapple.awt.UIElement=true",
@@ -279,23 +280,48 @@ jpackage {
         "--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
     ]
 
+    // Dodaj resurse u Windows installer (npr. skripte za instalaciju opcionalnih alata)
+    resourceDir = layout.projectDirectory.dir("packaging/windows/resources").asFile
+
     // Windows-specific configuration
+    // Helper to detect WiX (light.exe/candle.exe) in PATH on Windows
+    def hasWix = {
+        try {
+            if (OperatingSystem.current().isWindows()) {
+                def whereLight = ["where", "light.exe"].execute()
+                whereLight.waitFor()
+                def whereCandle = ["where", "candle.exe"].execute()
+                whereCandle.waitFor()
+                return whereLight.exitValue() == 0 && whereCandle.exitValue() == 0
+            }
+        } catch (Throwable ignored) {}
+        return false
+    }.call()
+
     windows {
         launcherAsService = false
         appVersion = project.version
 
         winConsole = false
-        winMenu = true  // Creates start menu entry
-        winShortcut = true  // Creates desktop shortcut
-        winShortcutPrompt = true  // Lets user choose whether to create shortcuts
-        winDirChooser = true  // Allows users to choose installation directory
-        winPerUserInstall = false
-        winMenuGroup = "Stirling PDF"
-        winUpgradeUuid = "2a43ed0c-b8c2-40cf-89e1-751129b87641" // Unique identifier for updates
-        winHelpUrl = "https://github.com/Stirling-Tools/Stirling-PDF"
-        winUpdateUrl = "https://github.com/Stirling-Tools/Stirling-PDF/releases"
-        type = ImageType.EXE
-        installDir = "C:/Program Files/Stirling-PDF"
+        if (hasWix) {
+            winMenu = true  // Creates start menu entry
+            winShortcut = true  // Creates desktop shortcut
+            winShortcutPrompt = true  // Lets user choose whether to create shortcuts
+            winDirChooser = true  // Allows users to choose installation directory
+            winPerUserInstall = false
+            winMenuGroup = "o0o0o0o"
+        }
+        if (hasWix) {
+            winUpgradeUuid = "2a43ed0c-b8c2-40cf-89e1-751129b87641" // Unique identifier for updates
+            winHelpUrl = "https://github.com/Stirling-Tools/Stirling-PDF"
+            winUpdateUrl = "https://github.com/Stirling-Tools/Stirling-PDF/releases"
+        }
+        // Ako WiX nije instaliran, napravi app-image (portable folder) umesto EXE instalera
+        def imageType = hasWix ? ImageType.EXE : ImageType.APP_IMAGE
+        type = imageType
+        if (hasWix) {
+            installDir = "C:/Program Files/o0o0o0o"
+        }
     }
 
     // MacOS-specific configuration
@@ -303,8 +329,8 @@ jpackage {
         appVersion = getMacVersion(project.version.toString())
         icon = layout.projectDirectory.file("app/core/src/main/resources/static/favicon.icns")
         type = ImageType.DMG
-        macPackageIdentifier = "Stirling PDF"
-        macPackageName = "Stirling PDF"
+    macPackageIdentifier = "o0o0o0o"
+    macPackageName = "o0o0o0o"
         macAppCategory = "public.app-category.productivity"
         macSign = false // Enable signing
         macAppStore = false // Not targeting App Store initially
@@ -334,7 +360,7 @@ jpackage {
         linuxAppRelease = "1"
         linuxPackageDeps = true
 
-        installDir = "/opt/Stirling-PDF"
+    installDir = "/opt/o0o0o0o"
 
         // RPM-specific settings
         //linuxRpmLicenseType = "MIT"
@@ -359,8 +385,22 @@ jpackage {
     ]*/
 
     // Add copyright and license information
-    copyright = "Copyright © 2025 Stirling PDF Inc."
-    licenseFile = layout.projectDirectory.file("LICENSE")
+    copyright = "Copyright © 2025 o0o0o0o"
+    // LICENSE je važeći samo za installers (EXE/MSI/RPM/DEB). Za APP_IMAGE nije dozvoljen.
+    if (OperatingSystem.current().isWindows()) {
+        def hasWixLocal = {
+            try {
+                def whereLight = ["where", "light.exe"].execute(); whereLight.waitFor()
+                def whereCandle = ["where", "candle.exe"].execute(); whereCandle.waitFor()
+                return whereLight.exitValue() == 0 && whereCandle.exitValue() == 0
+            } catch (Throwable ignored) { return false }
+        }.call()
+        if (hasWixLocal) {
+            licenseFile = layout.projectDirectory.file("LICENSE")
+        }
+    } else {
+        licenseFile = layout.projectDirectory.file("LICENSE")
+    }
 }
 
 //tasks.wrapper {
@@ -488,7 +528,7 @@ tasks.register('cleanTempJre') {
 launch4j {
     icon = "${projectDir}/app/core/src/main/resources/static/favicon.ico"
 
-    outfile="Stirling-PDF.exe"
+    outfile="o0o0o0o.exe"
 
     if(System.getenv("STIRLING_PDF_DESKTOP_UI") == 'true') {
         headerType = "gui"
@@ -508,14 +548,14 @@ launch4j {
 
     jreMinVersion="17"
 
-    mutexName="Stirling-PDF"
-    windowTitle="Stirling-PDF"
+    mutexName="o0o0o0o"
+    windowTitle="o0o0o0o"
 
-    messagesStartupError="An error occurred while starting Stirling-PDF"
+    messagesStartupError="An error occurred while starting o0o0o0o"
     // messagesJreNotFoundError="This application requires a Java Runtime Environment, Please download Java 17."
     messagesJreVersionError="You are running the wrong version of Java, Please download Java 21."
     messagesLauncherError="Java is corrupted. Please uninstall and then install  Java 21."
-    messagesInstanceAlreadyExists="Stirling-PDF is already running."
+    messagesInstanceAlreadyExists="o0o0o0o is already running."
 }
 
 spotless {
@@ -605,4 +645,26 @@ tasks.named('build') {
     doFirst {
         println "Delegating to :stirling-pdf:bootJar"
     }
+}
+
+// Kopira Windows helper skripte (install-tools.bat/.ps1) u app-image nakon jpackage
+tasks.register('copyWindowsHelpers', Copy) {
+    group = 'distribution'
+    description = 'Copy helper scripts into app-image folder (Windows)'
+    dependsOn 'jpackage'
+    from(layout.projectDirectory.dir('packaging/windows/resources')) {
+        include 'install-tools.bat', 'install-optional-tools.ps1'
+    }
+    into(layout.projectDirectory.dir('build/jpackage/o0o0o0o'))
+    onlyIf { OperatingSystem.current().isWindows() }
+}
+
+// Pakuje app-image u zip za lako deljenje (portable build)
+tasks.register('zipAppImage', Zip) {
+    group = 'distribution'
+    description = 'Create a ZIP archive of the Windows app-image for distribution'
+    dependsOn 'copyWindowsHelpers'
+    from(layout.projectDirectory.dir('build/jpackage/o0o0o0o'))
+    destinationDirectory = layout.projectDirectory.dir('build/distributions')
+    archiveFileName = "o0o0o0o-${project.version}-win64.zip"
 }

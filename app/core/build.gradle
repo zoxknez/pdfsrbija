@@ -160,7 +160,7 @@ bootJar {
 
     manifest {
         attributes(
-            'Implementation-Title': 'Stirling-PDF',
+            'Implementation-Title': 'o0o0o0o',
             'Implementation-Version': project.version
         )
     }

@@ -191,7 +191,7 @@ public class SPDFApplication {
     }
 
     private static void printStartupLogs() {
-        log.info("Stirling-PDF Started.");
+        log.info("o0o0o0o Started.");
         String url = baseUrlStatic + ":" + getStaticPort() + contextPathStatic;
         log.info("Navigate to {}", url);
     }

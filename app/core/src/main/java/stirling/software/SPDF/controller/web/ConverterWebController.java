@@ -145,6 +145,34 @@ public class ConverterWebController {
         return "convert/pdf-to-pdfa";
     }
 
+    @GetMapping("/svg-to-pdf")
+    @Hidden
+    public String svgToPdf(Model model) {
+        model.addAttribute("currentPage", "svg-to-pdf");
+        return "convert/svg-to-pdf";
+    }
+
+    @GetMapping("/pdf-to-svg")
+    @Hidden
+    public String pdfToSvg(Model model) {
+        model.addAttribute("currentPage", "pdf-to-svg");
+        return "convert/pdf-to-svg";
+    }
+
+    @GetMapping("/dwg-to-pdf")
+    @Hidden
+    public String dwgToPdf(Model model) {
+        model.addAttribute("currentPage", "dwg-to-pdf");
+        return "convert/dwg-to-pdf";
+    }
+
+    @GetMapping("/pdf-to-dwg")
+    @Hidden
+    public String pdfToDwg(Model model) {
+        model.addAttribute("currentPage", "pdf-to-dwg");
+        return "convert/pdf-to-dwg";
+    }
+
     @GetMapping("/eml-to-pdf")
     @Hidden
     public String convertEmlToPdfForm(Model model) {

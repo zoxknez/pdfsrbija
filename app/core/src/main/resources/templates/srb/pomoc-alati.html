@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html th:lang="${#locale.language}" th:dir="#{language.direction}" th:data-language="${#locale.toString()}"
+      xmlns:th="https://www.thymeleaf.org">
+<head>
+  <th:block th:insert="~{fragments/common :: head(title='Pomoć – Opcioni alati', header='Pomoć – Opcioni alati')}"></th:block>
+  <style>
+    .status-true{color:#0f5132;background:#d1e7dd;padding:.2rem .4rem;border-radius:.35rem}
+    .status-false{color:#842029;background:#f8d7da;padding:.2rem .4rem;border-radius:.35rem}
+    code{background:#f1f3f5;padding:2px 6px;border-radius:4px}
+  </style>
+</head>
+<body>
+<th:block th:insert="~{fragments/common :: game}"></th:block>
+<div id="page-container">
+  <div id="content-wrap">
+    <th:block th:insert="~{fragments/navbar.html :: navbar}"></th:block>
+    <br><br>
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 bg-card">
+          <div class="tool-header">
+            <span class="material-symbols-rounded tool-header-icon other">construction</span>
+            <span class="tool-header-text">Pomoć – Opcioni alati</span>
+          </div>
+          <p>Ova aplikacija može koristiti spoljne programe za dodatne funkcije (npr. konverzije i OCR). Ispod su uputstva za Windows i trenutni status detekcije alata.</p>
+
+          <h5>CAD konverzije (DWG ↔ PDF/DXF)</h5>
+          <ul>
+            <li><b>ODA File Converter</b> (odaconv) – preporučeno za DWG→PDF i DWG↔DXF. Preuzmi sa zvaničnog sajta ODA/Teigha i dodaj <code>odaconv</code> u PATH.</li>
+            <li><b>Inkscape</b> – koristi se za PDF→SVG i SVG→PDF/DXF. Instaliraj i uključi opciju „Add to PATH”.</li>
+            <li><b>Uniconvertor</b> – opciono; može pomoći pri SVG→DXF.</li>
+          </ul>
+
+          <h5>Ostali alati</h5>
+          <ul>
+            <li><b>Ghostscript</b> (gs) i <b>qpdf</b> – kompresija/popravka PDF.</li>
+            <li><b>LibreOffice</b> (soffice) / <b>unoconvert</b> – razne konverzije (Office↔PDF).</li>
+            <li><b>Tesseract</b> i/ili <b>OCRmyPDF</b> – OCR funkcije.</li>
+            <li><b>WeasyPrint</b> i <b>pdftohtml</b> – HTML/Markdown↔PDF i PDF→HTML/Markdown.</li>
+          </ul>
+
+          <p>Posle instalacije alata, <b>restartujte aplikaciju</b> kako bi detekcija bila osvežena.</p>
+
+          <hr/>
+          <h5>Stanje alata (uživo)</h5>
+          <div id="status" class="mb-3">Učitavam…</div>
+          <script>
+            async function loadStatus(){
+              try{
+                const r = await fetch('/api/tools/status');
+                const data = await r.json();
+                const wrap = document.getElementById('status');
+                wrap.innerHTML = '';
+                for (const [group, vals] of Object.entries(data)){
+                  const g = document.createElement('div');
+                  g.className = 'mb-2';
+                  const enabled = vals.enabled !== undefined ? vals.enabled : vals.enabledPython || vals.enabledOpenCV;
+                  const badge = `<span class="${enabled?'status-true':'status-false'}">${enabled?'omogućeno':'onemogućeno'}</span>`;
+                  let lines = '';
+                  for (const [k,v] of Object.entries(vals)){
+                    if (k === 'enabled' || k.startsWith('enabled')) continue;
+                    lines += `<li>${k}: <b>${v? 'pronađen':'nije pronađen'}</b></li>`
+                  }
+                  g.innerHTML = `<b>${group}</b> ${badge}<ul>${lines}</ul>`;
+                  wrap.appendChild(g);
+                }
+              }catch(e){
+                document.getElementById('status').innerText = 'Greška pri učitavanju statusa: ' + e;
+              }
+            }
+            loadStatus();
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+  <th:block th:insert="~{fragments/footer.html :: footer}"></th:block>
+</div>
+</body>
+</html>

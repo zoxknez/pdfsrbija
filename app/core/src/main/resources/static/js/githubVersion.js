@@ -26,7 +26,7 @@ function getDownloadUrl() {
 
   // Determine file based on machine type and security
   if (machineType === 'Server-jar') {
-    return baseUrl + (activeSecurity ? 'Stirling-PDF-with-login.jar' : 'Stirling-PDF.jar');
+  return baseUrl + (activeSecurity ? 'Stirling-PDF-with-login.jar' : 'Stirling-PDF.jar');
   }
 
   // Client installations

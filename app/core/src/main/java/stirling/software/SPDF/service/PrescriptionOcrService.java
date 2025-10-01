@@ -41,7 +41,15 @@ public class PrescriptionOcrService {
             @Value("${srb.ocr.prescription.zones:srb/ocr-prescription-zones.json}")
                     String zonesPath) {
         tess = new Tesseract();
-        tess.setDatapath(tessdataPath);
+        // Pokušaj da pronađe validan tessdata path; ako nije pronađen, nemoj forsirati pogrešan put
+        String envPrefix = System.getenv("TESSDATA_PREFIX");
+        try {
+            if (envPrefix != null && new File(envPrefix).exists()) {
+                tess.setDatapath(envPrefix);
+            } else if (tessdataPath != null && new File(tessdataPath).exists()) {
+                tess.setDatapath(tessdataPath);
+            } // else: prepusti Tesseract-u da koristi sistemski podrazumevani put
+        } catch (Throwable ignore) {}
         tess.setLanguage("srp_latn+srp+eng");
         tess.setOcrEngineMode(1); // LSTM_ONLY
         tess.setPageSegMode(6); // Assume a single uniform block of text
@@ -209,7 +217,13 @@ public class PrescriptionOcrService {
                         Math.max(0, Y),
                         Math.min(W, img.getWidth() - X),
                         Math.min(H, img.getHeight() - Y));
-        return tess.doOCR(sub);
+        try {
+            return tess.doOCR(sub);
+        } catch (Throwable t) {
+            // Ne propagiraj native crash; vrati prazno polje ili baci TesseractException sa porukom
+            if (t instanceof TesseractException te) throw te;
+            throw new TesseractException("Tesseract native greška: " + t.getMessage());
+        }
     }
 
     private String ocrCropDigits(BufferedImage img, double x, double y, double w, double h)

@@ -43,6 +43,7 @@
 				<div class="btnrow">
 					<button onclick="attach()">Ugradi UBL i preuzmi PDF/A-3</button>
 					<button onclick="listAttachments()">Prikaži priloge</button>
+					<button onclick="downloadDebug()" title="Preuzmi COS/XMP dijagnostiku za trenutni PDF">Preuzmi dijagnostiku</button>
 				</div>
 
 				<div id="attachInfo" class="muted" style="margin-top:8px"></div>
@@ -57,9 +58,20 @@
 				</select>
 				<div class="btnrow">
 					<button onclick="validate()">Validiraj PDF/A</button>
+					<button onclick="resetOutputs()" title="Očisti rezultate prikaza">Reset</button>
 				</div>
 				<div id="val" style="margin-top:10px"></div>
 				<div id="errorsBox" style="margin-top:8px"></div>
+				<div class="card" style="margin-top:12px;background:#0f0f0f">
+					<h3 style="margin:0 0 8px 0">Saveti za PDF/A‑3</h3>
+					<ul id="tips">
+						<li data-code="OutputIntentMissing">Dodajte sRGB OutputIntent (ICC profil sRGB IEC61966‑2.1) u dokument.</li>
+						<li data-code="XMPMissing">Osigurajte XMP metapodatke sa pdfaid:part=3 i pdfaid:conformance=B.</li>
+						<li data-code="FontNotEmbedded">Ugradite sve fontove; PDF/A ne dozvoljava pozivanje sistemskih fontova.</li>
+						<li data-code="FileAttachmentInvalidAF">Za UBL prilog koristite AF Relationship (npr. Alternative ili Data) i ispravan subtype.</li>
+						<li>Pravila: bez enkripcije; dozvoljene anotacije su ograničene; boje moraju imati validan profil.</li>
+					</ul>
+				</div>
 			</div>
 		</div>
 
@@ -74,6 +86,26 @@
 	<script>
 		function getPdfFile(){ return document.getElementById('pdf').files[0]; }
 		function getUblFile(){ return document.getElementById('ubl').files[0]; }
+
+		// Lagani, prijateljski prevod najčešćih Preflight kodova (ako nema unosa, prikazaćemo originalan kod)
+		const PREFLIGHT_EXPLAIN = {
+			'FontNotEmbedded': 'Font nije ugrađen. PDF/A traži ugradnju fontova da bi dokument bio samodovoljan.',
+			'FontMissing': 'Nedostaje font definisan u PDF-u.',
+			'FontInvalid': 'Font je oštećen ili nevažeći.',
+			'InvalidColorSpace': 'Nevažeći ili nedozvoljeni color space za dati PDF/A profil.',
+			'OutputIntentMissing': 'Nedostaje OutputIntent (npr. sRGB). PDF/A zahteva profil boja.',
+			'InvalidICCProfile': 'ICC profil boja je nevažeći ili nepodržan.',
+			'XMPMissing': 'Nedostaje XMP metapodatak koji PDF/A zahteva.',
+			'XMPInvalid': 'XMP struktura nije u skladu sa PDF/A zahtevima.',
+			'ForbiddenAnnotation': 'Pronađena zabranjena anotacija za dati PDF/A profil.',
+			'EncryptedDocument': 'Šifrovan dokument nije dozvoljen u PDF/A.',
+			'FileAttachmentInvalidAF': 'Prilog nije pravilno naveden u AF (Associated Files) strukturi.',
+		};
+
+		function explain(code){
+			if (!code) return '';
+			return PREFLIGHT_EXPLAIN[code] || 'Nema unapred definisanog objašnjenja. Kod: ' + code;
+		}
 
 		async function attach(){
 			const pdf = getPdfFile();
@@ -115,22 +147,41 @@
 												 ${data.details ? `<div class="muted">Detalji: <code>${escapeHtml(data.details)}</code></div>` : ''}`;
 			} else {
 				val.innerHTML = `<div><b>Način:</b> Strogi (Preflight)</div>
-												 <div><b>PDF/A validan:</b> <span class="${data.isValid?'ok':'bad'}">${data.isValid}</span>
-												 &nbsp; <span class="muted">Grešaka: ${data.errorCount ?? (data.errors?.length || 0)}</span></div>`;
+									 <div><b>PDF/A validan:</b> <span class="${data.isValid?'ok':'bad'}">${data.isValid}</span>
+									 &nbsp; <span class="muted">Grešaka: ${data.errorCount ?? (data.errors?.length || 0)}</span></div>
+									 <div class="muted" style="margin-top:6px">Napomena: Objašnjenja su indikativna; za tačan razlog pogledati kolonu Detalji.</div>`;
 				if (Array.isArray(data.errors) && data.errors.length) {
 					const rows = data.errors.map(e =>
 						`<tr>
 							<td>${escapeHtml(e.code ?? '')}</td>
+							<td>${escapeHtml(explain(e.code))}</td>
 							<td>${escapeHtml(e.details ?? '')}</td>
 							<td>${e.page ?? ''}</td>
 						</tr>`).join('');
 					errorsBox.innerHTML =
 						`<table>
-							 <thead><tr><th>Code</th><th>Detalji</th><th>Strana</th></tr></thead>
+							 <thead><tr><th>Code</th><th>Objašnjenje</th><th>Detalji</th><th>Strana</th></tr></thead>
 							 <tbody>${rows}</tbody>
 						 </table>`;
+					// Dinamički istakni relevantne savete
+					const presentCodes = new Set(data.errors.map(e => e.code).filter(Boolean));
+					highlightTips(presentCodes);
 				}
 			}
+		}
+
+		async function downloadDebug(){
+			const pdf = getPdfFile();
+			if(!pdf){ alert('Odaberi PDF.'); return; }
+			const fd = new FormData(); fd.append('pdf', pdf);
+			const r = await window.fetchWithCsrf('/api/pdfa3/debug', { method:'POST', body: fd });
+			if(!r.ok){ alert('Greška pri generisanju dijagnostike.'); return; }
+			const blob = await r.blob();
+			const a = document.createElement('a');
+			a.href = URL.createObjectURL(blob);
+			a.download = 'pdfa3-debug.json';
+			a.click();
+			URL.revokeObjectURL(a.href);
 		}
 
 		async function listAttachments(){
@@ -162,6 +213,29 @@
 
 		function escapeHtml(s){
 			return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+		}
+
+		function resetOutputs(){
+			document.getElementById('attachInfo').textContent = '';
+			document.getElementById('val').innerHTML = '';
+			document.getElementById('errorsBox').innerHTML = '';
+			document.getElementById('attachments').innerHTML = '';
+			// resetuj isticanje saveta
+			highlightTips(new Set());
+		}
+
+		function highlightTips(codes){
+			const tips = document.querySelectorAll('#tips li[data-code]');
+			tips.forEach(li => {
+				const code = li.getAttribute('data-code');
+				if (codes.has(code)) {
+					li.style.color = '#ffd27d';
+					li.style.fontWeight = '600';
+				} else {
+					li.style.color = '';
+					li.style.fontWeight = '';
+				}
+			});
 		}
 	</script>
 </body>

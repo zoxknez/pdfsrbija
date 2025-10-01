@@ -76,7 +76,7 @@ public class AppConfig {
     @Bean(name = "appName")
     public String appName() {
         String homeTitle = applicationProperties.getUi().getAppName();
-        return (homeTitle != null) ? homeTitle : "Stirling PDF";
+        return (homeTitle != null) ? homeTitle : "o0o0o0o";
     }
 
     @Bean(name = "appVersion")
@@ -115,7 +115,7 @@ public class AppConfig {
                 applicationProperties.getUi().getAppNameNavbar() != null
                         ? applicationProperties.getUi().getAppNameNavbar()
                         : applicationProperties.getUi().getAppName();
-        return (defaultNavBar != null) ? defaultNavBar : "Stirling PDF";
+        return (defaultNavBar != null) ? defaultNavBar : "o0o0o0o";
     }
 
     @Bean(name = "enableAlphaFunctionality")
@@ -214,7 +214,7 @@ public class AppConfig {
 
     @Bean(name = "StirlingPDFLabel")
     public String stirlingPDFLabel() {
-        return "Stirling-PDF" + " v" + appVersion();
+        return "o0o0o0o" + " v" + appVersion();
     }
 
     @Bean(name = "UUID")

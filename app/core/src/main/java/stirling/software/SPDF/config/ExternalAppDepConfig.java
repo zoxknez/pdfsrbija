@@ -43,6 +43,10 @@ public class ExternalAppDepConfig {
                         put(unoconvPath, List.of("Unoconvert"));
                         put("qpdf", List.of("qpdf"));
                         put("tesseract", List.of("tesseract"));
+                        // CAD tools (configure via PATH): e.g. Teigha Converter (odaconv), uniconvertor, inkscape cli
+                        put("odaconv", List.of("CAD")); // ODA File Converter/Teigha Converter command
+                        put("uniconvertor", List.of("CAD"));
+                        put("inkscape", List.of("CAD"));
                     }
                 };
     }
@@ -120,6 +124,13 @@ public class ExternalAppDepConfig {
         checkDependencyAndDisableGroup(weasyprintPath);
         checkDependencyAndDisableGroup("pdftohtml");
         checkDependencyAndDisableGroup(unoconvPath);
+    // CAD toolchain availability (any of these enables CAD group)
+    boolean cadAny = isCommandAvailable("odaconv") || isCommandAvailable("uniconvertor") || isCommandAvailable("inkscape");
+    if (!cadAny) {
+        endpointConfiguration.disableGroup("CAD");
+        log.warn("Missing dependency: CAD converters - Disabling group: CAD (Affected features: {})",
+            String.join(", ", getAffectedFeatures("CAD")));
+    }
         // Special handling for Python/OpenCV dependencies
         boolean pythonAvailable = isCommandAvailable("python3") || isCommandAvailable("python");
         if (!pythonAvailable) {

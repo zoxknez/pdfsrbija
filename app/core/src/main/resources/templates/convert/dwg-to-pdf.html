@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="sr">
+<head>
+    <meta charset="UTF-8" />
+    <title>DWG → PDF</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+<h1>DWG → PDF</h1>
+<div th:if="${!@endpointConfiguration.isGroupEnabled('CAD')}" style="border:1px solid #f5c2c7;background:#f8d7da;color:#842029;padding:10px;border-radius:6px;margin:10px 0;">
+    CAD alati nisu pronađeni. Instalirajte bar jedan od: ODA File Converter (odaconv), Inkscape, Uniconvertor. Potom restartujte aplikaciju.
+    <br/>
+    Na Windows-u možete otvoriti pomoćno uputstvo iz menija Pakovanje → install-optional-tools.ps1 ili pogledati <a href="/pomoc-alati" target="_blank" rel="noopener">Pomoć – Opcioni alati</a>.
+    Funkcija će vratiti 503 dok alati nisu dostupni.
+    </div>
+<form method="post" enctype="multipart/form-data" action="/api/cad/dwg-to-pdf">
+    <label>DWG datoteka</label>
+    <input type="file" name="file" accept=".dwg" required />
+    <label>DPI</label>
+    <input type="number" name="dpi" value="300" min="72" max="1200" />
+    <button type="submit">Konvertuj</button>
+</form>
+<p class="muted">Napomena: Zahteva instaliran odaconv/uniconvertor/inkscape u PATH‑u.</p>
+</body>
+</html>

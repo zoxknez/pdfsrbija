@@ -62,4 +62,9 @@ public class SrbWebController {
     public String admin() {
         return "srb/admin";
     }
+
+    @GetMapping("/pomoc-alati")
+    public String pomocAlati() {
+        return "srb/pomoc-alati";
+    }
 }
