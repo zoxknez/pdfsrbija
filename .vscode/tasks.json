@@ -1,0 +1,1 @@
+{"version":"2.0.0","tasks":[{"label":"Run Spring Boot app (background)","type":"shell","command":"powershell","args":["-NoProfile","-ExecutionPolicy","Bypass","-Command",".\\gradlew :stirling-pdf:bootRun --no-daemon"],"isBackground":true,"group":"build"}]}
