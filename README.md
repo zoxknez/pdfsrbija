@@ -150,8 +150,3 @@ Pogledaj `LICENSE` u root‑u repozitorijuma.
 PR‑ovi su dobrodošli. Za veće izmene, prvo otvori issue ili kontaktiraj nas sa kratkim opisom.
 
 Hvala što koristiš o0o0o0o! 🇷🇸
-
-## Doprinosi
-PR‑ovi su dobrodošli. Za veće izmene, prvo otvori issue ili kontaktiraj nas sa kratkim opisom.
-
-Hvala što koristiš o0o0o0o! 🇷🇸
